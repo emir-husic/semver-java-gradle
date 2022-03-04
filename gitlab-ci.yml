@@ -1,0 +1,33 @@
+variables:
+  CI_NAME: versionBumper
+  CI_EMAIL: ${CI_NAME}@company.com
+#
+.version_bumping: &version_bumping
+  stage: version-bump
+  image: timbru31/node-alpine-git
+  rules:
+    - if: '$GITLAB_USER_LOGIN != $CI_NAME && $CI_PIPELINE_SOURCE == "merge_request_event"'
+  before_script:
+  - npm ci
+  - git config --global user.email $CI_EMAIL
+  - git config --global user.name $CI_NAME
+  - git config receive.advertisePushOptions true
+  - git config --global http.sslVerify false
+  - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
+  script:
+  - npm run release -- --prerelease $CI_COMMIT_REF_NAME
+  - git push https://${CI_USER}:${CI_USER_ACCESS_TOKEN}@${CI_GIT_URI} --follow-tags $CI_COMMIT_BRANCH:$CI_COMMIT_BRANCH
+
+stages:
+  - version-bump
+
+version-bump-dev:
+  <<: *version_bumping
+
+version-bump-master:
+  <<: *version_bumping
+  rules:
+       - if: '$GITLAB_USER_LOGIN != $CI_NAME && $CI_PIPELINE_SOURCE == "push" && $CI_BUILD_REF_NAME == "master"'
+  script:
+    - npm run release
+    - git push https://${CI_USER}:${CI_USER_ACCESS_TOKEN}@${CI_GIT_URI} --follow-tags $CI_COMMIT_BRANCH:$CI_COMMIT_BRANCH
